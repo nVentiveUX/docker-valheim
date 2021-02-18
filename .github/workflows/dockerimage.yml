@@ -1,0 +1,43 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches:
+    - main
+    paths-ignore:
+    - '**.md'
+  pull_request:
+    branches:
+    - main
+    paths-ignore:
+    - '**.md'
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ARCH: ['amd64']
+    env:
+      DOCKER_IMAGE: nventiveux/docker-valheim
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Hadolint
+      uses: brpaz/hadolint-action@v1.2.1
+      with:
+        dockerfile: Dockerfile
+
+    - name: Build
+      run: |
+        docker build -t "${DOCKER_IMAGE}:latest" -f "Dockerfile" .
+        docker images
+
+    - name: Push
+      run: |
+        docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}"
+        docker push "${DOCKER_IMAGE}"
+        docker logout

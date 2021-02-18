@@ -1,32 +1,37 @@
-FROM steamcmd/steamcmd:latest
+#=== STAGE: builder ===
+# hadolint ignore=DL3007
+FROM cm2network/steamcmd:latest as builder
 
-RUN apt-get update && \
-	apt-get -y install --no-install-recommends libsdl2-2.0-0:i386 && \
-	rm -rf /var/lib/apt/lists/*
+RUN echo "** 🏗️ Install Valheim app..." \
+  && ./steamcmd.sh +login anonymous +force_install_dir "/tmp/valheim" +app_update "896660" validate +quit \
+  && echo "** 👍 Done."
 
+#=== STAGE: final ===
+# hadolint ignore=DL3007
+FROM cm2network/steamcmd:latest
 
-RUN mkdir -p /home/valheim/data/ && ulimit -n 2048
+LABEL maintainer="nVentiveUX <https://github.com/nVentiveUX>"
+LABEL license="MIT"
+LABEL description="A Docker image to easily setup and run a dedicated server for the early access game Valheim."
 
-WORKDIR /home/valheim
+VOLUME ${HOMEDIR}/valheim ${HOMEDIR}/.config/unity3d/IronGate/Valheim
 
-ADD entrypoint.sh /home/valheim/entrypoint.sh
-ADD start-server.sh /home/valheim/start-server.sh
+COPY --from=builder /tmp/valheim ${HOMEDIR}/valheim
 
-RUN chmod +x /home/valheim/entrypoint.sh && chmod +x /home/valheim/start-server.sh
+WORKDIR ${HOMEDIR}/valheim
 
-EXPOSE 2456/udp
-EXPOSE 2456/tcp
-EXPOSE 2457/udp
-EXPOSE 2457/tcp
-EXPOSE 2458/udp
-EXPOSE 2458/tcp
+ARG NAME="nVentiveUX/docker-valheim" \
+    WORLD="Dedicated" \
+    PUBLIC=1 \
+    PASSWORD="ChangeMe1234"
 
-ENV SERVER_NAME="Valheim Server"
-ENV SERVER_PASSWORD=""
-ENV SERVER_WORLD="World"
-ENV SERVER_PORT=2456
-ENV SERVER_PUBLIC=1
+ENV TZ="Europe/Paris" \
+    LANG="C.UTF-8" \
+    SteamAppId="892970" \
+    templdpath="$LD_LIBRARY_PATH" \
+    LD_LIBRARY_PATH="/home/steam/valheim/linux64:$LD_LIBRARY_PATH"
 
-ENTRYPOINT  ["/bin/sh", "entrypoint.sh"]
+EXPOSE 2456-2458/udp
 
-CMD ["/bin/sh", "start-server.sh", "-n"]
+# hadolint ignore=DL3018
+CMD [ "./valheim_server.x86_64", "-nographics", "-batchmode", "-name", "${NAME}", "-port", "2456", "-world", "${WORLD}", "-password", "${PASSWORD}", "-public", "${PUBLIC}" ]
