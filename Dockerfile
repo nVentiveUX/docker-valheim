@@ -1,5 +1,5 @@
 # hadolint ignore=DL3007
-FROM cm2network/steamcmd:latest
+FROM cm2network/steamcmd:steam
 
 LABEL maintainer="nVentiveUX <https://github.com/nVentiveUX>"
 LABEL license="MIT"
@@ -41,4 +41,4 @@ ENV TZ="Europe/Paris" \
 
 EXPOSE 2456-2458/udp
 
-CMD [ "./valheim_server.x86_64", "-nographics", "-batchmode", "-name", "${NAME}", "-port", "2456", "-world", "${WORLD}", "-password", "${PASSWORD}", "-public", "${PUBLIC}" ]
+CMD ["./valheim_server.x86_64", "-nographics", "-batchmode", "-name", "${NAME}", "-port", "2456", "-world", "${WORLD}", "-password", "${PASSWORD}", "-public", "${PUBLIC}"]
