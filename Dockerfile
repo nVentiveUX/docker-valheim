@@ -7,6 +7,21 @@ LABEL description="A Docker image to easily setup and run a dedicated server for
 
 VOLUME ${HOMEDIR}/valheim ${HOMEDIR}/.config/unity3d/IronGate/Valheim
 
+USER root
+
+SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
+
+# hadolint ignore=DL3008
+RUN echo "** 🏗️ Update system..." \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends --no-install-suggests \
+    locales \
+  && rm -rf /var/lib/apt/lists/* \
+  && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
+  && echo "** 👍 Done."
+
+USER ${USER}
+
 RUN echo "** 🏗️ Install Valheim app..." \
   && ./steamcmd.sh +login anonymous +force_install_dir "/tmp/valheim" +app_update "896660" validate +quit \
   && echo "** 👍 Done."
@@ -19,7 +34,7 @@ ARG NAME="nVentiveUX docker-valheim" \
     PASSWORD="ChangeMe1234"
 
 ENV TZ="Europe/Paris" \
-    LANG="C.UTF-8" \
+    LANG="en_US.utf8" \
     SteamAppId="892970" \
     templdpath="$LD_LIBRARY_PATH" \
     LD_LIBRARY_PATH="/home/steam/valheim/linux64:$LD_LIBRARY_PATH"
