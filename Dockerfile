@@ -12,7 +12,7 @@ USER root
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
 # hadolint ignore=DL3008
-RUN echo "** 🏗️ Update system..." \
+RUN echo "** 🏗️ Set locales..." \
   && apt-get update \
   && apt-get install -y --no-install-recommends --no-install-suggests \
     locales \

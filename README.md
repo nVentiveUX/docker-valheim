@@ -40,9 +40,10 @@ For **France Central**
 
 ```shell
 (
-rm -rf ~/docker-valheim
-git clone https://github.com/nVentiveUX/docker-valheim.git
+[[ ! -d "${HOME}/docker-valheim" ]] && git clone https://github.com/nVentiveUX/docker-valheim.git ~/docker-valheim
 cd ~/docker-valheim
+git fetch --prune
+git pull
 
 # Yvesub example
 ./create_vm.sh \
@@ -70,7 +71,7 @@ sudo reboot
 $ ssh ${AZ_LB_DNS}.${AZ_LOCATION}.cloudapp.azure.com -p 4160 -l yandolfat
 {
 # Install packages to allow apt to use a repository over HTTPS
-sudo apt-get install -y \
+sudo apt install -y \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -86,10 +87,10 @@ sudo add-apt-repository \
    stable"
 
 # Update the apt package index
-sudo apt-get update
+sudo apt update
 
 # Install the latest version of Docker CE
-sudo apt-get install docker-ce docker-ce-cli containerd.io
+sudo apt install -y docker-ce docker-ce-cli containerd.io
 sudo usermod -aG docker $(id -un)
 
 # Install docker-compose
@@ -109,23 +110,16 @@ Disconnect and reconnect so `docker` command will be knowned.
 {
 sudo mkdir -p /srv/valheim/saves /srv/valheim/server
 sudo chown -R 1000 /srv/valheim
-docker run -it --rm \
-  -v "/srv/valheim/server:/home/steam/valheim" \
-  -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
-  cm2network/steamcmd:latest ./steamcmd.sh +login anonymous +force_install_dir "/home/steam/valheim" +app_update "896660" validate +quit
-
 docker run -d \
   --name=valheim \
   -p 2456-2458:2456-2458/udp \
-  -e "TZ=Europe/Paris" \
-  -e "SteamAppId=892970" \
-  -e "templdpath=\$LD_LIBRARY_PATH" \
-  -e "LD_LIBRARY_PATH=/home/steam/valheim/linux64:\$LD_LIBRARY_PATH" \
+  -e "NAME=nVentiveUX docker-valheim" \
+  -e "PASSWORD=ChangeMe1234" \
   --volume "/srv/valheim/server:/home/steam/valheim" \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   --workdir=/home/steam/valheim \
   --restart unless-stopped \
-  cm2network/steamcmd:latest ./valheim_server.x86_64 -nographics -batchmode -name "LeBonServ - twitch.tv/supaxizo" -port 2456 -world "Dedicated" -password "****************" -public 1
+  nventiveux/docker-valheim:latest
 }
 ```
 
@@ -150,7 +144,7 @@ sudo chmod +x /usr/share/valheim/maintenance/azure_backup.sh
 cat <<EOF | sudo tee /etc/cron.d/valheim >/dev/null 2>&1
 SHELL=/bin/bash
 # m h dom mon dow user    command
-0 5 * * *  root  /usr/share/valheim/maintenance/azure_backup.sh "$STORAGE_ACCOUNT_NAME" "$STORAGE_SAS_TOKEN" "$STORAGE_ACCOUNT_CONTAINER" >/dev/null 2>&1
+0 5 * * * root    /usr/share/valheim/maintenance/azure_backup.sh "$STORAGE_ACCOUNT_NAME" "$STORAGE_SAS_TOKEN" "$STORAGE_ACCOUNT_CONTAINER" >/dev/null 2>&1
 EOF
 )
 ```
@@ -160,7 +154,7 @@ EOF
 ```bash
 {
 docker stop valheim
-docker run -it --rm -v "/srv/valheim/server:/home/steam/valheim" -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" cm2network/steamcmd:latest ./steamcmd.sh +login anonymous +force_install_dir "/home/steam/valheim" +app_update "896660" validate +quit
+docker run -it --rm -v "/srv/valheim/server:/home/steam/valheim" -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" nventiveux/docker-valheim:latest ./steamcmd.sh +login anonymous +force_install_dir "/home/steam/valheim" +app_update "896660" validate +quit
 docker start valheim
 }
 ```
