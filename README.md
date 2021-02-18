@@ -62,13 +62,15 @@ git pull
 
 ### Install Docker
 
+Following are **examples**
+
 ```shell
-$ scp -P 4160 ~/${AZ_LB_DNS}${AZ_LOCATION}_${AZ_CONTAINER}_sas.txt yandolfat@${AZ_LB_DNS}.${AZ_LOCATION}.cloudapp.azure.com:~/
-$ ssh ${AZ_LB_DNS}.${AZ_LOCATION}.cloudapp.azure.com -p 4160 -l yandolfat
+$ scp -P 4160 ~/lebonservfrancecentral_backup-001_sas.txt yandolfat@lebonserv.francecentral.cloudapp.azure.com:~/
+$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l yandolfat
 sudo apt update && sudo apt dist-upgrade -Vy
 sudo reboot
 
-$ ssh ${AZ_LB_DNS}.${AZ_LOCATION}.cloudapp.azure.com -p 4160 -l yandolfat
+$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l yandolfat
 {
 # Install packages to allow apt to use a repository over HTTPS
 sudo apt install -y \
@@ -109,17 +111,14 @@ Disconnect and reconnect so `docker` command will be knowned.
 ```shell
 {
 sudo mkdir -p /srv/valheim/saves /srv/valheim/server
-sudo chown -R 1000 /srv/valheim
+sudo chown -R 1000:1000 /srv/valheim
 docker run -d \
   --name=valheim \
   -p 2456-2458:2456-2458/udp \
-  -e "NAME=nVentiveUX docker-valheim" \
-  -e "PASSWORD=ChangeMe1234" \
   --volume "/srv/valheim/server:/home/steam/valheim" \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
-  --workdir=/home/steam/valheim \
   --restart unless-stopped \
-  nventiveux/docker-valheim:latest
+  nventiveux/docker-valheim:latest ./valheim_server.x86_64 -nographics -batchmode -name "nVentiveUX docker-valheim" -port 2456 -world "Dedicated" -password "ChangeMe1234" -public 1
 }
 ```
 
@@ -154,7 +153,7 @@ EOF
 ```bash
 {
 docker stop valheim
-docker run -it --rm -v "/srv/valheim/server:/home/steam/valheim" -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" nventiveux/docker-valheim:latest ./steamcmd.sh +login anonymous +force_install_dir "/home/steam/valheim" +app_update "896660" validate +quit
+docker run -it --rm -v "/srv/valheim/server:/home/steam/valheim" -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" nventiveux/docker-valheim:latest ./steamcmd.sh +login anonymous +force_install_dir "/home/steam/valheim" +app_update "896660" +quit
 docker start valheim
 }
 ```

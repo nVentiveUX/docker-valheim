@@ -390,7 +390,7 @@ az vm create \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_VM}" \
     --resource-group "${AZ_VM_RG}" \
-    --image "UbuntuLTS" \
+    --image "Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest" \
     --size "Standard_F2s_v2" \
     --nics "${AZ_VM}-nic" \
     --storage-sku "StandardSSD_LRS" \
