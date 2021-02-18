@@ -1,12 +1,3 @@
-#=== STAGE: builder ===
-# hadolint ignore=DL3007
-FROM cm2network/steamcmd:latest as builder
-
-RUN echo "** 🏗️ Install Valheim app..." \
-  && ./steamcmd.sh +login anonymous +force_install_dir "/tmp/valheim" +app_update "896660" validate +quit \
-  && echo "** 👍 Done."
-
-#=== STAGE: final ===
 # hadolint ignore=DL3007
 FROM cm2network/steamcmd:latest
 
@@ -16,11 +7,13 @@ LABEL description="A Docker image to easily setup and run a dedicated server for
 
 VOLUME ${HOMEDIR}/valheim ${HOMEDIR}/.config/unity3d/IronGate/Valheim
 
-COPY --from=builder /tmp/valheim ${HOMEDIR}/valheim
+RUN echo "** 🏗️ Install Valheim app..." \
+  && ./steamcmd.sh +login anonymous +force_install_dir "/tmp/valheim" +app_update "896660" validate +quit \
+  && echo "** 👍 Done."
 
 WORKDIR ${HOMEDIR}/valheim
 
-ARG NAME="nVentiveUX/docker-valheim" \
+ARG NAME="nVentiveUX docker-valheim" \
     WORLD="Dedicated" \
     PUBLIC=1 \
     PASSWORD="ChangeMe1234"
@@ -33,5 +26,4 @@ ENV TZ="Europe/Paris" \
 
 EXPOSE 2456-2458/udp
 
-# hadolint ignore=DL3018
 CMD [ "./valheim_server.x86_64", "-nographics", "-batchmode", "-name", "${NAME}", "-port", "2456", "-world", "${WORLD}", "-password", "${PASSWORD}", "-public", "${PUBLIC}" ]
