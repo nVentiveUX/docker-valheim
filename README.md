@@ -1,8 +1,6 @@
 # Valheim server on Azure
 [![Docker Image CI](https://github.com/nVentiveUX/docker-valheim/workflows/Docker%20Image%20CI/badge.svg)](https://hub.docker.com/repository/docker/nventiveux/docker-valheim) [![Docker Pulls](https://img.shields.io/docker/pulls/nventiveux/docker-valheim)](https://hub.docker.com/r/nventiveux/docker-valheim)
 
-> /!\ WORK IN PROGRESS. DO NOT USE YET !
-
 Table of contents
 
   1. [About](#about)
@@ -133,12 +131,12 @@ nc -v lebonserv.francecentral.cloudapp.azure.com 2457 -u
 ```shell
 (
 STORAGE_ACCOUNT_NAME="lebonservfrancecentral"
-STORAGE_SAS_TOKEN=""
+STORAGE_SAS_TOKEN="$(cat lebonservfrancecentral_backup-001_sas.txt)"
 STORAGE_ACCOUNT_CONTAINER="backup-001"
 
 printf "Set-up \"/etc/cron.d/valheim\" backup system...\\n"
 sudo mkdir -p /usr/share/valheim/maintenance
-sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/master/azure_backup.sh" -O /usr/share/valheim/maintenance/azure_backup.sh
+sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/main/azure_backup.sh" -O /usr/share/valheim/maintenance/azure_backup.sh
 sudo chmod +x /usr/share/valheim/maintenance/azure_backup.sh
 cat <<EOF | sudo tee /etc/cron.d/valheim >/dev/null 2>&1
 SHELL=/bin/bash
@@ -151,6 +149,8 @@ EOF
 ### Update
 
 ```bash
+docker restart valheim
+# or
 {
 docker stop valheim
 docker run -it --rm -v "/srv/valheim/server:/home/steam/valheim" -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" nventiveux/docker-valheim:latest ./steamcmd.sh +login anonymous +force_install_dir "/home/steam/valheim" +app_update "896660" +quit
