@@ -113,12 +113,12 @@ Disconnect and reconnect so `docker` command will be knowned.
 sudo mkdir -p /srv/valheim/saves /srv/valheim/server
 sudo chown -R 1000:1000 /srv/valheim
 docker run -d \
-  --name=valheim \
-  -p 2456-2458:2456-2458/udp \
+  --name valheim \
+  --publish 2456-2458:2456-2458/udp \
   --volume "/srv/valheim/server:/home/steam/valheim" \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   --restart unless-stopped \
-  nventiveux/docker-valheim:latest ./valheim_server.x86_64 -nographics -batchmode -name "nVentiveUX docker-valheim" -port 2456 -world "Dedicated" -password "ChangeMe1234" -public 1
+  nventiveux/docker-valheim:latest ./valheim_server.x86_64 -name "nVentiveUX" -port 2456 -world "Dedicated" -password "ChangeMe1234"
 }
 ```
 
