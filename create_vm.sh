@@ -265,51 +265,6 @@ az network lb create \
     --sku "Basic" \
     --output none
 
-printf "Create %s health probe...\\n" "${AZ_LB}"
-az network lb probe create \
-    --name "${AZ_VM}-health" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --protocol "tcp" \
-    --port 53 \
-    --output none
-
-printf "Create rule for Valheim connections...\\n"
-az network lb rule create \
-    --name "${AZ_VM}-valheim-2456" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --backend-pool-name "${AZ_VM}-backendpool" \
-    --protocol "udp" \
-    --frontend-port "2456" \
-    --backend-port "2456" \
-    --probe-name "${AZ_VM}-health" \
-    --output none
-
-az network lb rule create \
-    --name "${AZ_VM}-valheim-2457" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --backend-pool-name "${AZ_VM}-backendpool" \
-    --protocol "udp" \
-    --frontend-port "2457" \
-    --backend-port "2457" \
-    --probe-name "${AZ_VM}-health" \
-    --output none
-
-az network lb rule create \
-    --name "${AZ_VM}-valheim-2458" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --backend-pool-name "${AZ_VM}-backendpool" \
-    --protocol "udp" \
-    --frontend-port "2458" \
-    --backend-port "2458" \
-    --probe-name "${AZ_VM}-health" \
-    --output none
 
 printf "Create NAT rule for SSH connection...\\n"
 az network lb inbound-nat-rule create \
@@ -320,6 +275,37 @@ az network lb inbound-nat-rule create \
     --backend-port "22" \
     --frontend-ip-name "${AZ_LB}-public-ip" \
     --protocol "tcp" \
+    --output none
+
+printf "Create NAT pool rules for Valheim connections...\\n"
+az network lb inbound-nat-rule create \
+    --name "${AZ_VM}-valheim-2456" \
+    --resource-group "${AZ_VM_RG}" \
+    --lb-name "${AZ_LB}" \
+    --frontend-port "2456" \
+    --backend-port "2456" \
+    --frontend-ip-name "${AZ_LB}-public-ip" \
+    --protocol "udp" \
+    --output none
+
+az network lb inbound-nat-rule create \
+    --name "${AZ_VM}-valheim-2457" \
+    --resource-group "${AZ_VM_RG}" \
+    --lb-name "${AZ_LB}" \
+    --frontend-port "2457" \
+    --backend-port "2457" \
+    --frontend-ip-name "${AZ_LB}-public-ip" \
+    --protocol "udp" \
+    --output none
+
+az network lb inbound-nat-rule create \
+    --name "${AZ_VM}-valheim-2458" \
+    --resource-group "${AZ_VM_RG}" \
+    --lb-name "${AZ_LB}" \
+    --frontend-port "2458" \
+    --backend-port "2458" \
+    --frontend-ip-name "${AZ_LB}-public-ip" \
+    --protocol "udp" \
     --output none
 
 printf "Create NSG %s-nsg...\\n" "${AZ_VM}"
@@ -382,6 +368,9 @@ az network nic ip-config update \
     --lb-name "${AZ_LB}" \
     --lb-inbound-nat-rules \
         "${AZ_VM}-ssh" \
+        "${AZ_VM}-valheim-2456" \
+        "${AZ_VM}-valheim-2457" \
+        "${AZ_VM}-valheim-2458" \
     --output none
 
 printf "Create %s Azure Virtual Machine...\\n" "${AZ_VM}"
