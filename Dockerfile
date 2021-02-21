@@ -26,6 +26,11 @@ ENV TZ="Europe/Paris" \
     templdpath="$LD_LIBRARY_PATH" \
     LD_LIBRARY_PATH="/home/steam/valheim/linux64:$LD_LIBRARY_PATH"
 
+RUN echo "** 🏗️ Prepare config folders..." \
+  && mkdir -pv "${HOMEDIR}/valheim" \
+  && mkdir -pv "${HOMEDIR}/.config/unity3d/IronGate/Valheim" \
+  && echo "** 👍 Done."
+
 EXPOSE 2456-2458/udp
 
 VOLUME ${HOMEDIR}/valheim ${HOMEDIR}/.config/unity3d/IronGate/Valheim
