@@ -31,7 +31,7 @@ RUN echo "** 🏗️ Prepare config folders..." \
   && mkdir -pv "${HOMEDIR}/.config/unity3d/IronGate/Valheim" \
   && echo "** 👍 Done."
 
-EXPOSE 2456-2458/udp
+EXPOSE 2456-2457/udp
 
 VOLUME ${HOMEDIR}/valheim ${HOMEDIR}/.config/unity3d/IronGate/Valheim
 

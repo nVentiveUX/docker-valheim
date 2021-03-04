@@ -112,7 +112,7 @@ sudo mkdir -p /srv/valheim/saves /srv/valheim/server
 sudo chown -R 1000:1000 /srv/valheim
 docker run -d \
   --name valheim \
-  --publish 2456-2458:2456-2458/udp \
+  --publish 2456-2457:2456-2457/udp \
   --volume "/srv/valheim/server:/home/steam/valheim" \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   --restart unless-stopped \

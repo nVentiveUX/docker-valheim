@@ -298,16 +298,6 @@ az network lb inbound-nat-rule create \
     --protocol "udp" \
     --output none
 
-az network lb inbound-nat-rule create \
-    --name "${AZ_VM}-valheim-2458" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --frontend-port "2458" \
-    --backend-port "2458" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --protocol "udp" \
-    --output none
-
 printf "Create NSG %s-nsg...\\n" "${AZ_VM}"
 az network nsg create \
     --location "${AZ_LOCATION}" \
@@ -341,7 +331,7 @@ az network nsg rule create \
     --source-address-prefixes "*" \
     --source-port-ranges "*" \
     --destination-address-prefixes "VirtualNetwork" \
-    --destination-port-ranges "2456-2458" \
+    --destination-port-ranges "2456-2457" \
     --access "Allow" \
     --protocol "udp" \
     --description "Allow Valheim traffic from Any" \
@@ -370,7 +360,6 @@ az network nic ip-config update \
         "${AZ_VM}-ssh" \
         "${AZ_VM}-valheim-2456" \
         "${AZ_VM}-valheim-2457" \
-        "${AZ_VM}-valheim-2458" \
     --output none
 
 printf "Create %s Azure Virtual Machine...\\n" "${AZ_VM}"

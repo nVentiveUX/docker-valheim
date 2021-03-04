@@ -12,7 +12,7 @@ tests: image
 		--rm \
 		-it \
 		--name "valheim" \
-		--publish 2456-2458:2456-2458/udp \
+		--publish 2456-2457:2456-2457/udp \
 		nventiveux/docker-valheim:latest \
 		./valheim_server.x86_64 -name "nVentiveUX" -port 2456 -world "Dedicated" -password "ChangeMe1234"
 
