@@ -63,12 +63,12 @@ git pull
 Following are **examples**
 
 ```shell
-$ scp -P 4160 ~/lebonservfrancecentral_backup-001_sas.txt yandolfat@lebonserv.francecentral.cloudapp.azure.com:~/
-$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l yandolfat
+$ scp -P 4160 ~/lebonservfrancecentral_backup-001_sas.txt $(id -un)@lebonserv.francecentral.cloudapp.azure.com:~/
+$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l $(id -un)
 sudo apt update && sudo apt dist-upgrade -Vy
 sudo reboot
 
-$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l yandolfat
+$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l $(id -un)
 {
 # Install packages to allow apt to use a repository over HTTPS
 sudo apt install -y \
