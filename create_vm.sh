@@ -156,7 +156,7 @@ fi
 printf "Switch to %s subscription...\\n" "$(az account show --subscription "${AZ_SUBSCRIPTION_ID}"  --query name --output tsv)"
 az account set --subscription "${AZ_SUBSCRIPTION_ID}" --output none
 
-if ! az network vnet show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-group ${AZ_SHARED_RG} --name ${AZ_VNET} --output none; then
+if ! az network vnet show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-group "${AZ_SHARED_RG}" --name "${AZ_VNET}" --output none; then
     printf "Create %s resource group...\\n" "${AZ_SHARED_RG}"
     az group create \
         --location "${AZ_LOCATION}" \
@@ -183,13 +183,6 @@ az network vnet subnet create \
     --address-prefix "${AZ_VNET_SUBNET}" \
     --output none
 
-printf "Create %s resource group...\\n" "${AZ_VM_RG}"
-az group create \
-    --location "${AZ_LOCATION}" \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --name "${AZ_VM_RG}" \
-    --output none
-
 printf "Create %s%s Storage Account...\\n" "${AZ_LB_DNS}" "${AZ_LOCATION}"
 az storage account create \
     --location "${AZ_LOCATION}" \
@@ -197,17 +190,22 @@ az storage account create \
     --resource-group "${AZ_SHARED_RG}" \
     --name "${AZ_LB_DNS}${AZ_LOCATION}" \
     --https-only true \
+    --allow-blob-public-access false \
     --kind StorageV2 \
     --encryption-services blob \
     --access-tier Hot \
     --sku Standard_LRS \
     --output none
 
+printf "Awaiting Storage Account creation...\\n"
+sleep 30
+
 printf "Create %s blob container...\\n" "${AZ_CONTAINER}"
 az storage container create \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_CONTAINER}" \
     --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
+    --public-access "off" \
     --output none
 
 printf "Create a ReadWriteList policy for %s blob container...\\n" "${AZ_CONTAINER}"
@@ -231,29 +229,30 @@ sas=$(az storage container generate-sas \
     --output tsv)
 
 printf "Your Storage access key is: \"%s\"\\n" "${sas}"
-echo "${sas}" > ~/"${AZ_LB_DNS}""${AZ_LOCATION}"_${AZ_CONTAINER}_sas.txt
+echo "${sas}" > ~/"${AZ_LB_DNS}""${AZ_LOCATION}"_"${AZ_CONTAINER}"_sas.txt
 
-printf "Deny public access for %s blob container...\\n" "${AZ_CONTAINER}"
-az storage container set-permission \
+printf "Create %s resource group...\\n" "${AZ_VM_RG}"
+az group create \
+    --location "${AZ_LOCATION}" \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --name "${AZ_CONTAINER}" \
-    --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
-    --public-access off \
+    --name "${AZ_VM_RG}" \
     --output none
 
-printf "Create %s.%s.cloudapp.azure.com basic public IP address...\\n" "${AZ_LB_DNS}" "${AZ_LOCATION}"
+printf "Create %s.%s.cloudapp.azure.com standard public IP address...\\n" "${AZ_LB_DNS}" "${AZ_LOCATION}"
 az network public-ip create \
     --location "${AZ_LOCATION}" \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_LB}-public-ip" \
     --resource-group "${AZ_VM_RG}" \
     --allocation-method "static" \
-    --sku "Basic" \
+    --sku "Standard" \
     --version "IPv4" \
+    --ip-tags 'RoutingPreference=Internet' \
+    --zone 1 2 3 \
     --dns-name "${AZ_LB_DNS}" \
     --output none
 
-printf "Create %s basic load balancer...\\n" "${AZ_LB}"
+printf "Create %s standard load balancer...\\n" "${AZ_LB}"
 az network lb create \
     --location "${AZ_LOCATION}" \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
@@ -262,9 +261,8 @@ az network lb create \
     --public-ip-address "${AZ_LB}-public-ip" \
     --frontend-ip-name "${AZ_LB}-public-ip" \
     --backend-pool-name "${AZ_VM}-backendpool" \
-    --sku "Basic" \
+    --sku "Standard" \
     --output none
-
 
 printf "Create NAT rule for SSH connection...\\n"
 az network lb inbound-nat-rule create \
