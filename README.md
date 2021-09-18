@@ -1,4 +1,5 @@
 # Valheim server on Azure
+
 [![Docker Image CI](https://github.com/nVentiveUX/docker-valheim/workflows/Docker%20Image%20CI/badge.svg)](https://hub.docker.com/repository/docker/nventiveux/docker-valheim) [![Docker Pulls](https://img.shields.io/docker/pulls/nventiveux/docker-valheim)](https://hub.docker.com/r/nventiveux/docker-valheim)
 
 Table of contents
@@ -20,7 +21,7 @@ A Docker image to easily setup and run a dedicated server for the early access g
 
 ## Known issue
 
-None.
+  [] Backup scheduling - #3
 
 ## Usage
 
@@ -32,7 +33,7 @@ It features a sustained all core Turbo clock speed of 3.4 GHz and a maximum sing
 
 You can launch an [Azure Cloud Shell](https://shell.azure.com/) to run the following notebook. (It will create automatically a storage account in the proper location)
 
-All commands are documented here: https://docs.microsoft.com/fr-fr/cli/azure/reference-index
+All commands are documented here: [](https://docs.microsoft.com/fr-fr/cli/azure/reference-index)
 
 For **France Central**
 
@@ -75,16 +76,17 @@ sudo apt install -y \
     apt-transport-https \
     ca-certificates \
     curl \
-    software-properties-common
+    software-properties-common \
+    gnupg \
+    lsb-release
 
 # Add Docker’s official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
 # Add stable Docker repository
-sudo add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable"
+echo \
+  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Update the apt package index
 sudo apt update
@@ -94,11 +96,15 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io
 sudo usermod -aG docker $(id -un)
 
 # Install docker-compose
-sudo curl -L https://github.com/docker/compose/releases/download/$(curl -Ls https://www.servercow.de/docker-compose/latest.php)/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+sudo curl \
+  -L https://github.com/docker/compose/releases/download/$(curl -Ls https://www.servercow.de/docker-compose/latest.php)/docker-compose-$(uname -s)-$(uname -m) \
+  -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
 # Install bash completion for Docker
-sudo curl -L https://raw.githubusercontent.com/docker/compose/$(docker-compose version --short)/contrib/completion/bash/docker-compose -o /etc/bash_completion.d/docker-compose
+sudo curl \
+  -L https://raw.githubusercontent.com/docker/compose/$(docker-compose version --short)/contrib/completion/bash/docker-compose \
+  -o /etc/bash_completion.d/docker-compose
 }
 ```
 
