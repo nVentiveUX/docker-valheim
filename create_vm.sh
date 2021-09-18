@@ -347,6 +347,7 @@ az network nic create \
     --public-ip-address "" \
     --network-security-group "${AZ_VM}-nsg" \
     --lb-address-pools "/subscriptions/${AZ_SUBSCRIPTION_ID}/resourceGroups/${AZ_VM_RG}/providers/Microsoft.Network/loadBalancers/${AZ_LB}/backendAddressPools/${AZ_VM}-backendpool" \
+    --accelerated-networking true \
     --output none
 
 printf "Assign inbound NAT rules to NIC...\\n"
@@ -368,7 +369,7 @@ az vm create \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_VM}" \
     --resource-group "${AZ_VM_RG}" \
-    --image "Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest" \
+    --image "Canonical:0001-com-ubuntu-server-focal:20_04-lts-gen2:latest" \
     --size "Standard_F2s_v2" \
     --nics "${AZ_VM}-nic" \
     --storage-sku "StandardSSD_LRS" \
