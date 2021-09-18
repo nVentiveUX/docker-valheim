@@ -1,0 +1,24 @@
+#cloud-config
+output: {all: '| tee -a /var/log/cloud-init-output.log'}
+
+package_update: true
+package_upgrade: true
+
+packages:
+ - apt-transport-https
+ - ca-certificates
+ - curl
+ - software-properties-common
+ - sudo
+ - gnupg
+ - lsb-release
+
+write_files:
+  - path: '/etc/ssh/sshd_config.d/10-non-standard-port.conf'
+    content: |
+      Port 4160
+
+runcmd:
+  - set -x
+  - sudo apt-get remove -y --purge sshguard || true
+  - systemctl restart sshd.service

@@ -156,7 +156,7 @@ fi
 printf "Switch to %s subscription...\\n" "$(az account show --subscription "${AZ_SUBSCRIPTION_ID}"  --query name --output tsv)"
 az account set --subscription "${AZ_SUBSCRIPTION_ID}" --output none
 
-if ! az network vnet show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-group "${AZ_SHARED_RG}" --name "${AZ_VNET}" --output none; then
+if ! az storage account show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-group "${AZ_SHARED_RG}" --name "${AZ_LB_DNS}${AZ_LOCATION}" --output none; then
     printf "Create %s resource group...\\n" "${AZ_SHARED_RG}"
     az group create \
         --location "${AZ_LOCATION}" \
@@ -164,6 +164,59 @@ if ! az network vnet show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-grou
         --name "${AZ_SHARED_RG}" \
         --output none
 
+    printf "Create %s%s Storage Account...\\n" "${AZ_LB_DNS}" "${AZ_LOCATION}"
+    az storage account create \
+        --location "${AZ_LOCATION}" \
+        --subscription "${AZ_SUBSCRIPTION_ID}" \
+        --resource-group "${AZ_SHARED_RG}" \
+        --name "${AZ_LB_DNS}${AZ_LOCATION}" \
+        --https-only true \
+        --allow-blob-public-access false \
+        --kind StorageV2 \
+        --encryption-services blob \
+        --access-tier Hot \
+        --sku Standard_LRS \
+        --output none
+
+    printf "Awaiting Storage Account creation...\\n"
+    sleep 60
+fi
+
+if ! az storage container show --subscription "${AZ_SUBSCRIPTION_ID}" --account-name "${AZ_LB_DNS}${AZ_LOCATION}" --name "${AZ_CONTAINER}" --output none; then
+    printf "Create %s blob container...\\n" "${AZ_CONTAINER}"
+    az storage container create \
+        --subscription "${AZ_SUBSCRIPTION_ID}" \
+        --name "${AZ_CONTAINER}" \
+        --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
+        --public-access "off" \
+        --output none
+
+    printf "Create a ReadWriteList policy for %s blob container...\\n" "${AZ_CONTAINER}"
+    az storage container policy create \
+        --subscription "${AZ_SUBSCRIPTION_ID}" \
+        --container-name "${AZ_CONTAINER}" \
+        --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
+        --name "rwl" \
+        --permissions "rwl" \
+        --expiry "$(date -u -d "100 years" '+%Y-%m-%dT%H:%MZ')" \
+        --start "$(date -u -d "-1 days" '+%Y-%m-%dT%H:%MZ')" \
+        --output none
+
+    printf "Generate SAS Token to access the %s blob container...\\n" "${AZ_CONTAINER}"
+    sas=$(az storage container generate-sas \
+        --subscription "${AZ_SUBSCRIPTION_ID}" \
+        --name "${AZ_CONTAINER}" \
+        --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
+        --policy-name "rwl" \
+        --https-only \
+        --output tsv)
+
+    printf "Your Storage access key is: \"%s\"\\n" "${sas}"
+    echo "${sas}" > ~/"${AZ_LB_DNS}""${AZ_LOCATION}"_"${AZ_CONTAINER}"_sas.txt
+fi
+
+
+if ! az network vnet subnet show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-group "${AZ_SHARED_RG}" --vnet-name "${AZ_VNET}" --name "${AZ_VNET_SUBNET_NAME}" --output none; then
     printf "Create a new 10.1.0.0/16 VNET named %s...\\n" "${AZ_VNET}"
     az network vnet create \
         --location "${AZ_LOCATION}" \
@@ -172,128 +225,22 @@ if ! az network vnet show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-grou
         --name "${AZ_VNET}" \
         --address-prefix "10.1.0.0/16" \
         --output none
+
+    printf "Create a new %s subnet named %s...\\n" "${AZ_VNET_SUBNET}" "${AZ_VNET_SUBNET_NAME}"
+    az network vnet subnet create \
+        --subscription "${AZ_SUBSCRIPTION_ID}" \
+        --resource-group "${AZ_SHARED_RG}" \
+        --vnet-name "${AZ_VNET}" \
+        --name "${AZ_VNET_SUBNET_NAME}" \
+        --address-prefix "${AZ_VNET_SUBNET}" \
+        --output none
 fi
-
-printf "Create a new %s subnet named %s...\\n" "${AZ_VNET_SUBNET}" "${AZ_VNET_SUBNET_NAME}"
-az network vnet subnet create \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --resource-group "${AZ_SHARED_RG}" \
-    --vnet-name "${AZ_VNET}" \
-    --name "${AZ_VNET_SUBNET_NAME}" \
-    --address-prefix "${AZ_VNET_SUBNET}" \
-    --output none
-
-printf "Create %s%s Storage Account...\\n" "${AZ_LB_DNS}" "${AZ_LOCATION}"
-az storage account create \
-    --location "${AZ_LOCATION}" \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --resource-group "${AZ_SHARED_RG}" \
-    --name "${AZ_LB_DNS}${AZ_LOCATION}" \
-    --https-only true \
-    --allow-blob-public-access false \
-    --kind StorageV2 \
-    --encryption-services blob \
-    --access-tier Hot \
-    --sku Standard_LRS \
-    --output none
-
-printf "Awaiting Storage Account creation...\\n"
-sleep 30
-
-printf "Create %s blob container...\\n" "${AZ_CONTAINER}"
-az storage container create \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --name "${AZ_CONTAINER}" \
-    --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
-    --public-access "off" \
-    --output none
-
-printf "Create a ReadWriteList policy for %s blob container...\\n" "${AZ_CONTAINER}"
-az storage container policy create \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --container-name "${AZ_CONTAINER}" \
-    --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
-    --name "rwl" \
-    --permissions "rwl" \
-    --expiry "$(date -u -d "100 years" '+%Y-%m-%dT%H:%MZ')" \
-    --start "$(date -u -d "-1 days" '+%Y-%m-%dT%H:%MZ')" \
-    --output none
-
-printf "Generate SAS Token to access the %s blob container...\\n" "${AZ_CONTAINER}"
-sas=$(az storage container generate-sas \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --name "${AZ_CONTAINER}" \
-    --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
-    --policy-name "rwl" \
-    --https-only \
-    --output tsv)
-
-printf "Your Storage access key is: \"%s\"\\n" "${sas}"
-echo "${sas}" > ~/"${AZ_LB_DNS}""${AZ_LOCATION}"_"${AZ_CONTAINER}"_sas.txt
 
 printf "Create %s resource group...\\n" "${AZ_VM_RG}"
 az group create \
     --location "${AZ_LOCATION}" \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_VM_RG}" \
-    --output none
-
-printf "Create %s.%s.cloudapp.azure.com standard public IP address...\\n" "${AZ_LB_DNS}" "${AZ_LOCATION}"
-az network public-ip create \
-    --location "${AZ_LOCATION}" \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --name "${AZ_LB}-public-ip" \
-    --resource-group "${AZ_VM_RG}" \
-    --allocation-method "static" \
-    --sku "Standard" \
-    --version "IPv4" \
-    --ip-tags 'RoutingPreference=Internet' \
-    --zone 1 2 3 \
-    --dns-name "${AZ_LB_DNS}" \
-    --output none
-
-printf "Create %s standard load balancer...\\n" "${AZ_LB}"
-az network lb create \
-    --location "${AZ_LOCATION}" \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --name "${AZ_LB}" \
-    --resource-group "${AZ_VM_RG}" \
-    --public-ip-address "${AZ_LB}-public-ip" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --backend-pool-name "${AZ_VM}-backendpool" \
-    --sku "Standard" \
-    --output none
-
-printf "Create NAT rule for SSH connection...\\n"
-az network lb inbound-nat-rule create \
-    --name "${AZ_VM}-ssh" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --frontend-port "4160" \
-    --backend-port "22" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --protocol "tcp" \
-    --output none
-
-printf "Create NAT pool rules for Valheim connections...\\n"
-az network lb inbound-nat-rule create \
-    --name "${AZ_VM}-valheim-2456" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --frontend-port "2456" \
-    --backend-port "2456" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --protocol "udp" \
-    --output none
-
-az network lb inbound-nat-rule create \
-    --name "${AZ_VM}-valheim-2457" \
-    --resource-group "${AZ_VM_RG}" \
-    --lb-name "${AZ_LB}" \
-    --frontend-port "2457" \
-    --backend-port "2457" \
-    --frontend-ip-name "${AZ_LB}-public-ip" \
-    --protocol "udp" \
     --output none
 
 printf "Create NSG %s-nsg...\\n" "${AZ_VM}"
@@ -306,7 +253,7 @@ az network nsg create \
 
 printf "Create NSG rule to allow inbound connections...\\n"
 az network nsg rule create \
-    --name "Allow_SSH" \
+    --name "AllowSSH" \
     --nsg-name "${AZ_VM}-nsg" \
     --resource-group "${AZ_VM_RG}" \
     --priority "1000" \
@@ -314,17 +261,17 @@ az network nsg rule create \
     --source-address-prefixes "*" \
     --source-port-ranges "*" \
     --destination-address-prefixes "VirtualNetwork" \
-    --destination-port-ranges "22" \
+    --destination-port-ranges "4160" \
     --access "Allow" \
     --protocol "tcp" \
     --description "Allow SSH traffic from Any" \
     --output none
 
 az network nsg rule create \
-    --name "Allow_Valheim" \
+    --name "AllowValheim" \
     --nsg-name "${AZ_VM}-nsg" \
     --resource-group "${AZ_VM_RG}" \
-    --priority "1001" \
+    --priority "1010" \
     --direction "Inbound" \
     --source-address-prefixes "*" \
     --source-port-ranges "*" \
@@ -335,6 +282,20 @@ az network nsg rule create \
     --description "Allow Valheim traffic from Any" \
     --output none
 
+printf "Create %s.%s.cloudapp.azure.com standard public IP address...\\n" "${AZ_LB_DNS}" "${AZ_LOCATION}"
+az network public-ip create \
+    --location "${AZ_LOCATION}" \
+    --subscription "${AZ_SUBSCRIPTION_ID}" \
+    --name "${AZ_LB}-public-ip" \
+    --resource-group "${AZ_VM_RG}" \
+    --allocation-method "Static" \
+    --sku "Standard" \
+    --version "IPv4" \
+    --ip-tags 'RoutingPreference=Internet' \
+    --zone 1 2 3 \
+    --dns-name "${AZ_LB_DNS}" \
+    --output none
+
 printf "Create NIC...\\n"
 az network nic create \
     --location "${AZ_LOCATION}" \
@@ -342,22 +303,8 @@ az network nic create \
     --name "${AZ_VM}-nic" \
     --resource-group "${AZ_VM_RG}" \
     --subnet "/subscriptions/${AZ_SUBSCRIPTION_ID}/resourceGroups/${AZ_SHARED_RG}/providers/Microsoft.Network/virtualNetworks/${AZ_VNET}/subnets/${AZ_VNET_SUBNET_NAME}" \
-    --public-ip-address "" \
+    --public-ip-address "${AZ_LB}-public-ip" \
     --network-security-group "${AZ_VM}-nsg" \
-    --lb-address-pools "/subscriptions/${AZ_SUBSCRIPTION_ID}/resourceGroups/${AZ_VM_RG}/providers/Microsoft.Network/loadBalancers/${AZ_LB}/backendAddressPools/${AZ_VM}-backendpool" \
-    --output none
-
-printf "Assign inbound NAT rules to NIC...\\n"
-az network nic ip-config update \
-    --subscription "${AZ_SUBSCRIPTION_ID}" \
-    --resource-group "${AZ_VM_RG}" \
-    --name "ipconfig1" \
-    --nic-name "${AZ_VM}-nic" \
-    --lb-name "${AZ_LB}" \
-    --lb-inbound-nat-rules \
-        "${AZ_VM}-ssh" \
-        "${AZ_VM}-valheim-2456" \
-        "${AZ_VM}-valheim-2457" \
     --output none
 
 printf "Create %s Azure Virtual Machine...\\n" "${AZ_VM}"
@@ -372,6 +319,7 @@ az vm create \
     --storage-sku "StandardSSD_LRS" \
     --admin-username "yandolfat" \
     --ssh-key-value "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCe0lgCF/ZKiUJnl8gbSQSKvzIiWZM8ZouxUxjmXGJIXvacmZCC/Ou7UvX5JMQFqUcYe63BSGOz93X2r4e17M++JbOR+ShloGS+4+w+wu6MAYaiVIC6/PmhSfyzFXEWuE+dLadNwJMF8ePUXqwYZntRy5Gahu1wYSkqaif3TNsDRCDYcd0viCOEmGN+NYeoNJwGQ9HIWJ29sY/BUZJWEVB0ZweTvNqwtl3bMvY/JHmEmEIYwdRcdROPEPmxcuBH81Tt2fsD9V7DYhyvz2lQPVJD++3jIZX2i9sPQj8SVJbo23xOZZykVIKU7WaztBtPPz3RdytBiyQ8sgNwKLbJX7Vv0+qY1no4xUnKwJPc5zfikje4rYxTksjIRg7igMNrCFGWZA75hb+Nm+HhQsKqVHtOIaw3P6j6slysQQ5MOQYTqg7k60yxTRGTv8Y6V45jrYWQg+vhKO4gzVTKsqrqJTRhJXU3vv//1NPW7ucNlNPCF8n0RyjXue6Y1Xr8rZv5QheLZvcHumd23pA+Z6aRA/Hd2VINy00PQz9dscOpWHpUiiu4HMPHLcLdlhaVMFr2otwB2749xHciZFCsWnprMGX6V3lVGHQ3OFfIBFz1ZVFG+eAbXmZZepdtwVJDidXDfvzAtMol/+PwVVUJgpA1a1dryyZkg9k2FbO1bSVolvmkpQ== Yves ANDOLFATTO" \
+    --custom-data "./cloudinit.yml" \
     --output none
 
 printf "Done.\\n\\n"
