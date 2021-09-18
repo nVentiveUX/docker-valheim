@@ -21,7 +21,7 @@ A Docker image to easily setup and run a dedicated server for the early access g
 
 ## Known issue
 
-  [] Backup scheduling - #3
+- [ ] Backup scheduling - [#3](https://github.com/nVentiveUX/docker-valheim/issues/3)
 
 ## Usage
 
@@ -141,13 +141,13 @@ STORAGE_SAS_TOKEN="$(cat lebonservfrancecentral_backup-001_sas.txt)"
 STORAGE_ACCOUNT_CONTAINER="backup-001"
 
 printf "Set-up \"/etc/cron.d/valheim\" backup system...\\n"
-sudo mkdir -p /usr/share/valheim/maintenance
-sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/main/azure_backup.sh" -O /usr/share/valheim/maintenance/azure_backup.sh
-sudo chmod +x /usr/share/valheim/maintenance/azure_backup.sh
+sudo mkdir -p /usr/local/share/valheim/maintenance
+sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/main/azure_backup.sh" -O /usr/local/share/valheim/maintenance/azure_backup.sh
+sudo chmod +x /usr/local/share/valheim/maintenance/azure_backup.sh
 cat <<EOF | sudo tee /etc/cron.d/valheim >/dev/null 2>&1
 SHELL=/bin/bash
 # m h dom mon dow user    command
-0 5 * * * root    /usr/share/valheim/maintenance/azure_backup.sh "$STORAGE_ACCOUNT_NAME" "$STORAGE_SAS_TOKEN" "$STORAGE_ACCOUNT_CONTAINER" >/dev/null 2>&1
+0 5 * * * root    /usr/local/share/valheim/maintenance/azure_backup.sh "$STORAGE_ACCOUNT_NAME" "$STORAGE_SAS_TOKEN" "$STORAGE_ACCOUNT_CONTAINER" >/dev/null 2>&1
 EOF
 )
 ```

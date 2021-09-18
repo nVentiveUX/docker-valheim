@@ -345,7 +345,6 @@ az network nic create \
     --public-ip-address "" \
     --network-security-group "${AZ_VM}-nsg" \
     --lb-address-pools "/subscriptions/${AZ_SUBSCRIPTION_ID}/resourceGroups/${AZ_VM_RG}/providers/Microsoft.Network/loadBalancers/${AZ_LB}/backendAddressPools/${AZ_VM}-backendpool" \
-    --accelerated-networking true \
     --output none
 
 printf "Assign inbound NAT rules to NIC...\\n"
