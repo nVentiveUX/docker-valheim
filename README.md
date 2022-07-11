@@ -59,60 +59,13 @@ git pull
 )
 ```
 
-### Install Docker
-
-Following are **examples**
-
-```shell
-$ scp -P 4160 ~/lebonservfrancecentral_backup-001_sas.txt $(id -un)@lebonserv.francecentral.cloudapp.azure.com:~/
-$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l $(id -un)
-sudo apt update && sudo apt dist-upgrade -Vy
-sudo reboot
-
-$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l $(id -un)
-{
-# Install packages to allow apt to use a repository over HTTPS
-sudo apt install -y \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    software-properties-common \
-    gnupg \
-    lsb-release
-
-# Add Docker’s official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# Add stable Docker repository
-echo \
-  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Update the apt package index
-sudo apt update
-
-# Install the latest version of Docker CE
-sudo apt install -y docker-ce docker-ce-cli containerd.io
-sudo usermod -aG docker $(id -un)
-
-# Install docker-compose
-sudo curl \
-  -L https://github.com/docker/compose/releases/download/$(curl -Ls https://www.servercow.de/docker-compose/latest.php)/docker-compose-$(uname -s)-$(uname -m) \
-  -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
-# Install bash completion for Docker
-sudo curl \
-  -L https://raw.githubusercontent.com/docker/compose/$(docker-compose version --short)/contrib/completion/bash/docker-compose \
-  -o /etc/bash_completion.d/docker-compose
-}
-```
-
 ### First run
 
 Disconnect and reconnect so `docker` command will be knowned.
 
 ```shell
+$ scp -P 4160 ~/lebonservfrancecentral_backup-001_sas.txt $(id -un)@lebonserv.francecentral.cloudapp.azure.com:~/
+$ ssh lebonserv.francecentral.cloudapp.azure.com -p 4160 -l $(id -un)
 {
 sudo mkdir -p /srv/valheim/saves /srv/valheim/server
 sudo chown -R 1000:1000 /srv/valheim
