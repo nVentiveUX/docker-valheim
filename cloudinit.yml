@@ -3,15 +3,35 @@ output: {all: '| tee -a /var/log/cloud-init-output.log'}
 
 package_update: true
 package_upgrade: true
+package_reboot_if_required: true
+
+# Get signing key: curl -sL https://download.docker.com/linux/ubuntu/gpg | gpg
+apt:
+  sources:
+    docker.list:
+      source: deb [arch=amd64] https://download.docker.com/linux/ubuntu $RELEASE stable
+      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 
 packages:
- - apt-transport-https
- - ca-certificates
- - curl
- - software-properties-common
- - sudo
- - gnupg
- - lsb-release
+  - apt-transport-https
+  - ca-certificates
+  - containerd.io
+  - curl
+  - docker-ce
+  - docker-ce-cli
+  - docker-compose-plugin
+  - gnupg-agent
+  - software-properties-common
+  - sudo
+
+# Create the docker group
+groups:
+  - docker
+
+# Add default auto created user to docker group
+system_info:
+  default_user:
+    groups: [docker]
 
 write_files:
   - path: '/etc/ssh/sshd_config.d/10-non-standard-port.conf'
@@ -22,3 +42,5 @@ runcmd:
   - set -x
   - sudo apt-get remove -y --purge sshguard || true
   - systemctl restart sshd.service
+
+final_message: "The system is finally up, after $UPTIME seconds"
