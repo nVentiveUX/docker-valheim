@@ -126,10 +126,15 @@ fi
 
 # Upload the archive
 write_log "Upload \"${BACKUP_FILE}\" into \"https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}\"."
+AZCOPY_ERROR_LOG="${TMPDIR}/azcopy-error.log"
 "$AZCOPY_PATH" copy \
   "${BACKUP_FILE}" \
-  "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}/$(basename "${BACKUP_FILE}")?${STORAGE_SAS_TOKEN}" >/dev/null 2>&1 || rCodeUpload=$?
+  "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}/$(basename "${BACKUP_FILE}")?${STORAGE_SAS_TOKEN}" \
+  >/dev/null 2>"${AZCOPY_ERROR_LOG}" || rCodeUpload=$?
 if [ $rCodeUpload -ne 0 ]; then
+  while IFS= read -r message; do
+    write_log "AzCopy: ${message}"
+  done < "${AZCOPY_ERROR_LOG}"
   write_log "Unable to upload the final archive into Azure!"
   write_log "!!!! BACKUP FAILED !!!!"
   exit 2
