@@ -13,6 +13,15 @@ SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 RUN echo "** 🏗️ Set locales..." \
   && apt-get update \
   && apt-get install -y --no-install-recommends --no-install-suggests \
+		ca-certificates \
+		file \
+		lib32z1 \
+		libatomic1 \
+		libc6-dev \
+    libpulse-dev \
+		libpulse0 \
+		tini \
+	  wget \
     locales \
   && rm -rf /var/lib/apt/lists/* \
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -23,8 +32,8 @@ USER ${USER}
 ENV TZ="Europe/Paris" \
     LANG="en_US.utf8" \
     SteamAppId="892970" \
-    templdpath="$LD_LIBRARY_PATH" \
-    LD_LIBRARY_PATH="/home/steam/valheim/linux64:$LD_LIBRARY_PATH"
+    templdpath="" \
+    LD_LIBRARY_PATH="/home/steam/valheim/linux64"
 
 RUN echo "** 🏗️ Prepare config folders..." \
   && mkdir -pv "${HOMEDIR}/valheim" \
@@ -38,4 +47,5 @@ VOLUME ${HOMEDIR}/valheim ${HOMEDIR}/.config/unity3d/IronGate/Valheim
 COPY entrypoint.sh /entrypoint.sh
 
 WORKDIR ${HOMEDIR}/valheim
-ENTRYPOINT  ["/entrypoint.sh"]
+STOPSIGNAL SIGINT
+ENTRYPOINT ["tini", "-g", "--", "/entrypoint.sh"]

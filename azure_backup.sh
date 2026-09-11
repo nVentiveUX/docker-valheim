@@ -1,30 +1,45 @@
 #!/bin/bash
 # Backup files script for Ubuntu on Azure
 # $1 = STORAGE_ACCOUNT_NAME
-# $2 = STORAGE_SAS_TOKEN
+# $2 = STORAGE_SAS_TOKEN_FILE
 # $3 = STORAGE_ACCOUNT_CONTAINER
 
 set -eu -o pipefail
+
+if [[ $# -ne 3 ]]; then
+  printf 'Usage: %s <storage-account> <sas-token-file> <container>\n' "$0" >&2
+  exit 64
+fi
+
+umask 077
+exec 9>/run/lock/valheim-backup.lock
+flock -n 9 || exit 0
 
 # Please edit according to your need.
 BACKUP_DIR="/var/backups/valheim"
 FILES_DIR="/srv/valheim/saves"
 LOG_DIR="/var/log/valheim"
 STORAGE_ACCOUNT_NAME=$1
-STORAGE_SAS_TOKEN=$2
+STORAGE_SAS_TOKEN_FILE=$2
 STORAGE_ACCOUNT_CONTAINER=$3
 #-------------------------------------------------------------------------------
 
 # Init
 TMPDIR=$(mktemp -d /tmp/backup.XXXXXX)
 BASENAME=$(basename "$0")
-TIMESTAMP=$(date "+%A")
+TIMESTAMP=$(date "+%Y-%m-%dT%H-%M-%S%z")
 BACKUP_FILE="${BACKUP_DIR}/full-backup-${TIMESTAMP}.tar.xz"
 LOGFILE="${LOG_DIR}/${BASENAME}.log"
 
+if [[ ! -r $STORAGE_SAS_TOKEN_FILE ]]; then
+  printf 'SAS token file is not readable: %s\n' "$STORAGE_SAS_TOKEN_FILE" >&2
+  exit 64
+fi
+STORAGE_SAS_TOKEN="$(<"${STORAGE_SAS_TOKEN_FILE}")"
+
 # Check backup destination is there
 if [ ! -d "$LOG_DIR" ]; then
-  mkdir -p $LOG_DIR
+  mkdir -p "$LOG_DIR"
 fi
 
 # Utilities
@@ -47,11 +62,15 @@ rCodeFinalTar=0
 rCodeUpload=0
 
 # Install AzCopy
-if [ ! -r /azcopy ]; then
+AZCOPY_PATH="/usr/local/bin/azcopy"
+if [ ! -x "$AZCOPY_PATH" ]; then
   write_log "Install AzCopy..."
-  wget -O /tmp/azcopy.tar.gz "https://aka.ms/downloadazcopy-v10-linux"
-  tar -xzvf /tmp/azcopy.tar.gz -C / --strip-components=1 --wildcards 'azcopy_linux_amd64_*/azcopy'
-  rm -f /tmp/azcopy.tar.gz
+  AZCOPY_TMPDIR=$(mktemp -d /tmp/azcopy.XXXXXX)
+  wget -q -O "${AZCOPY_TMPDIR}/azcopy.tar.gz" "https://aka.ms/downloadazcopy-v10-linux"
+  mkdir "${AZCOPY_TMPDIR}/extract"
+  tar -xzf "${AZCOPY_TMPDIR}/azcopy.tar.gz" -C "${AZCOPY_TMPDIR}/extract" --strip-components=1 --wildcards 'azcopy_linux_amd64_*/azcopy'
+  install -m 0755 "${AZCOPY_TMPDIR}/azcopy" "$AZCOPY_PATH"
+  rm -rf "$AZCOPY_TMPDIR"
   write_log "AzCopy installed."
 fi
 
@@ -60,7 +79,7 @@ write_log "#### BACKUP BEGIN ####"
 
 # Check backup destination is there
 if [ ! -d "$BACKUP_DIR" ]; then
-  mkdir -p $BACKUP_DIR
+  mkdir -p "$BACKUP_DIR"
 fi
 
 # Application backup
@@ -76,7 +95,7 @@ fi
 
 # Final archiving
 write_log "Archive all in \"${BACKUP_FILE}\"."
-tar Jcf "${BACKUP_FILE}" "${TMPDIR}" >/dev/null 2>&1 || rCodeFinalTar=$?
+tar Jcf "${BACKUP_FILE}" -C "${TMPDIR}" . >/dev/null 2>&1 || rCodeFinalTar=$?
 if [ $rCodeFinalTar -ne 0 ]; then
   write_log "Unable to create the final archive!"
   write_log "!!!! BACKUP FAILED !!!!"
@@ -85,7 +104,7 @@ fi
 
 # Upload the archive
 write_log "Upload \"${BACKUP_FILE}\" into \"https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}\"."
-/azcopy copy \
+"$AZCOPY_PATH" copy \
   "${BACKUP_FILE}" \
   "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}/${BACKUP_FILE}?${STORAGE_SAS_TOKEN}" >/dev/null 2>&1 || rCodeUpload=$?
 if [ $rCodeUpload -ne 0 ]; then

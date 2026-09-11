@@ -14,8 +14,7 @@ tests: image
 		--name "valheim" \
 		--publish 2456-2457:2456-2457/udp \
 		nventiveux/docker-valheim:latest \
-		./valheim_server.x86_64 -name "nVentiveUX" -port 2456 -world "Dedicated" -password "ChangeMe1234"
-
+		./valheim_server.x86_64 -name "nVentiveUX" -port 2456 -world "Dedicated" -password "$${VALHEIM_PASSWORD:?set VALHEIM_PASSWORD}" -public 0 -saveinterval 900 -backups 4 -backupshort 7200 -backuplong 43200 -crossplay
 
 # Self documenting
 # https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html

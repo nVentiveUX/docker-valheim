@@ -14,6 +14,7 @@ Table of contents
 ![Valheim](https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/896660/233d73a1c963515ee4a9b59507bc093d85a4e2dc.jpg "Valheim")
 
 A Docker image to easily setup and run a dedicated server for the early access game Valheim.
+Check also this [Official guide](https://valheim.com/support/a-guide-to-dedicated-servers).
 
 ## Disclaimer
 
@@ -27,9 +28,10 @@ A Docker image to easily setup and run a dedicated server for the early access g
 
 ### Create the infrastructure in Azure
 
-For Valheim, you need a strong CPU, so I pick a **Standard_F2s_v2** (2 vcpus, 4 GiB memory)
-The Fsv2-series runs on the Intel® Xeon® Platinum 8272CL (Cascade Lake) processors and Intel® Xeon® Platinum 8168 (Skylake) processors.
-It features a sustained all core Turbo clock speed of 3.4 GHz and a maximum single-core turbo frequency of 3.7 GHz.
+For Valheim, the script defaults to **Standard_D2as_v7** (2 vCPUs, 8 GiB memory), a current x64 SKU available in France Central. This non-`d` variant has no local temporary NVMe disk; persistent game data remains on managed storage.
+The VM image defaults to `Canonical:ubuntu-24_04-lts:server:latest`.
+
+Override the defaults with `VM_SIZE`, `VM_IMAGE`, `VM_ADMIN_USERNAME`, and `OS_DISK_SKU` when needed.
 
 You can launch an [Azure Cloud Shell](https://shell.azure.com/) to run the following notebook. (It will create automatically a storage account in the proper location)
 
@@ -46,18 +48,22 @@ git pull
 
 # Yvesub example
 ./create_vm.sh \
-    --subscription="8d8af6bf-9138-4d9d-a2e6-5bff1e3044c5" \
-    --location="francecentral" \
-    --rg-vnet="rg-shared-001" \
-    --vnet-name="vnt-shared-001" \
-    --subnet-name="snt-lebonserv-001" \
-    --subnet="10.1.0.0/29" \
-    --rg-vm="rg-app-lebonserv-001" \
-    --vm-name="vm-lebonserv-001" \
-    --lb-name="lb-lebonserv-001" \
-    --dns-name="lebonserv"
+  --subscription="2aa7db02-cab6-4205-9ac5-51857c211abe" \
+  --location="francecentral" \
+  --rg-vnet="rg-shared-001" \
+  --vnet-name="vnt-shared-001" \
+  --subnet-name="snt-lebonserv-001" \
+  --subnet="10.1.0.0/29" \
+  --rg-vm="rg-app-lebonserv-001" \
+  --vm-name="vm-lebonserv-001" \
+  --lb-name="lb-lebonserv-001" \
+  --dns-name="lebonserv" \
+  --ssh-key-file="$HOME/.ssh/id_ed25519.pub" \
+  --ssh-source-prefixes="203.0.113.10/32"
 )
 ```
+
+Replace `203.0.113.10/32` with the trusted public IP or CIDR used to administer the VM.
 
 ### First run
 
@@ -75,7 +81,7 @@ docker run -d \
   --volume "/srv/valheim/server:/home/steam/valheim" \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   --restart unless-stopped \
-  nventiveux/docker-valheim:latest ./valheim_server.x86_64 -name "nVentiveUX" -port 2456 -world "Dedicated" -password "ChangeMe1234"
+  nventiveux/docker-valheim:latest ./valheim_server.x86_64 -name "nVentiveUX" -port 2456 -world "Dedicated" -password "$(read -rsp 'Valheim password: ' password; printf '%s' "$password")"
 }
 ```
 
@@ -92,15 +98,18 @@ nc -v lebonserv.francecentral.cloudapp.azure.com 2457 -u
 STORAGE_ACCOUNT_NAME="lebonservfrancecentral"
 STORAGE_SAS_TOKEN="$(cat lebonservfrancecentral_backup-001_sas.txt)"
 STORAGE_ACCOUNT_CONTAINER="backup-001"
+STORAGE_SAS_TOKEN_FILE="/etc/valheim/storage-sas-token"
 
 printf "Set-up \"/etc/cron.d/valheim\" backup system...\\n"
 sudo mkdir -p /usr/local/share/valheim/maintenance
-sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/main/azure_backup.sh" -O /usr/local/share/valheim/maintenance/azure_backup.sh
+sudo install -m 600 /dev/null "${STORAGE_SAS_TOKEN_FILE}"
+printf '%s\\n' "$STORAGE_SAS_TOKEN" | sudo tee "${STORAGE_SAS_TOKEN_FILE}" >/dev/null
+sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/c5cbc6e/azure_backup.sh" -O /usr/local/share/valheim/maintenance/azure_backup.sh
 sudo chmod +x /usr/local/share/valheim/maintenance/azure_backup.sh
 cat <<EOF | sudo tee /etc/cron.d/valheim >/dev/null 2>&1
 SHELL=/bin/bash
 # m h dom mon dow user    command
-0 5 * * * root    /usr/local/share/valheim/maintenance/azure_backup.sh "$STORAGE_ACCOUNT_NAME" "$STORAGE_SAS_TOKEN" "$STORAGE_ACCOUNT_CONTAINER" >/dev/null 2>&1
+0 5 * * * root    /usr/local/share/valheim/maintenance/azure_backup.sh "$STORAGE_ACCOUNT_NAME" "$STORAGE_SAS_TOKEN_FILE" "$STORAGE_ACCOUNT_CONTAINER" >/dev/null 2>&1
 EOF
 )
 ```

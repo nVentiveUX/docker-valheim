@@ -4,10 +4,14 @@ set -eu -o pipefail
 
 PROGNAME="$(basename "$0")"
 
+usage() {
+    printf "usage: %s --subscription=<name> --location=<name> --rg-vnet=<name> --vnet-name=<name> --subnet-name=<name> --subnet=<name> --rg-vm=<name> --vm-name=<name> --lb-name=<name> --dns-name=<name> --ssh-key-file=<path> --ssh-source-prefixes=<cidr>\\n" "${PROGNAME}"
+}
+
 # Parse arguments
 ARGS=$(getopt \
-    --options s:l:g:v:n:u:r:m:b:d \
-    --longoptions subscription:,location:,rg-vnet:,vnet-name:,subnet-name:,subnet:,rg-vm:,vm-name:,lb-name:,dns-name: \
+    --options hs:l:g:v:n:u:r:m:b:d \
+    --longoptions help,subscription:,location:,rg-vnet:,vnet-name:,subnet-name:,subnet:,rg-vm:,vm-name:,lb-name:,dns-name:,ssh-key-file:,ssh-source-prefixes: \
     -n "${PROGNAME}" -- "$@")
 eval set -- "${ARGS}"
 unset ARGS
@@ -22,10 +26,22 @@ AZ_VM_RG=""
 AZ_VM=""
 AZ_LB=""
 AZ_LB_DNS=""
+AZ_SSH_KEY_FILE="${SSH_KEY_FILE:-${HOME}/.ssh/id_ed25519.pub}"
+AZ_SSH_SOURCE_PREFIXES="${SSH_SOURCE_PREFIXES:-}"
 AZ_CONTAINER="backup-001"
+AZ_VM_IMAGE="${VM_IMAGE:-Canonical:ubuntu-24_04-lts:server:latest}"
+AZ_VM_SIZE="${VM_SIZE:-Standard_D2as_v7}"
+AZ_VM_ADMIN_USERNAME="${VM_ADMIN_USERNAME:-yandolfat}"
+AZ_OS_DISK_SKU="${OS_DISK_SKU:-Premium_LRS}"
+AZ_STORAGE_SKU="${STORAGE_SKU:-Standard_ZRS}"
+AZ_TAGS=(service=valheim environment=production managed-by=create_vm.sh)
 
 while true; do
   case "$1" in
+        '-h'|'--help')
+                usage
+                exit 0
+        ;;
     '-s'|'--subscription')
         AZ_SUBSCRIPTION_ID="$2"
         shift 2
@@ -76,6 +92,16 @@ while true; do
         shift 2
         continue
     ;;
+    '--ssh-key-file')
+        AZ_SSH_KEY_FILE="$2"
+        shift 2
+        continue
+    ;;
+    '--ssh-source-prefixes')
+        AZ_SSH_SOURCE_PREFIXES="$2"
+        shift 2
+        continue
+    ;;
     '--')
         shift
         break
@@ -86,11 +112,6 @@ while true; do
     ;;
   esac
 done
-
-# Show usage
-usage() {
-    printf "usage: %s --subscription=<name> --location=<name> --rg-vnet=<name> --vnet-name=<name> --subnet-name=<name> --subnet=<name> --rg-vm=<name> --vm-name=<name> --lb-name=<name> --dns-name=<name>\\n" "${PROGNAME}"
-}
 
 # Pre-checks
 if [[ -z $AZ_SUBSCRIPTION_ID ]]; then
@@ -153,6 +174,20 @@ if [[ -z $AZ_LB_DNS ]]; then
     exit 1
 fi
 
+if [[ ! -r $AZ_SSH_KEY_FILE ]]; then
+    echo "Error: SSH public key file is not readable: ${AZ_SSH_KEY_FILE}"
+    usage
+    exit 1
+fi
+
+if [[ -z $AZ_SSH_SOURCE_PREFIXES ]]; then
+    echo "Error: --ssh-source-prefixes is required; do not expose SSH to the Internet"
+    usage
+    exit 1
+fi
+
+AZ_SSH_KEY_VALUE="$(<"${AZ_SSH_KEY_FILE}")"
+
 printf "Switch to %s subscription...\\n" "$(az account show --subscription "${AZ_SUBSCRIPTION_ID}"  --query name --output tsv)"
 az account set --subscription "${AZ_SUBSCRIPTION_ID}" --output none
 
@@ -172,22 +207,26 @@ if ! az storage account show --subscription "${AZ_SUBSCRIPTION_ID}" --resource-g
         --name "${AZ_LB_DNS}${AZ_LOCATION}" \
         --https-only true \
         --allow-blob-public-access false \
+        --min-tls-version TLS1_2 \
+        --allow-cross-tenant-replication false \
         --kind StorageV2 \
         --encryption-services blob \
         --access-tier Hot \
-        --sku Standard_LRS \
+        --sku "${AZ_STORAGE_SKU}" \
+        --tags "${AZ_TAGS[@]}" \
         --output none
 
     printf "Awaiting Storage Account creation...\\n"
     sleep 60
 fi
 
-if ! az storage container show --subscription "${AZ_SUBSCRIPTION_ID}" --account-name "${AZ_LB_DNS}${AZ_LOCATION}" --name "${AZ_CONTAINER}" --output none; then
+if ! az storage container show --subscription "${AZ_SUBSCRIPTION_ID}" --account-name "${AZ_LB_DNS}${AZ_LOCATION}" --name "${AZ_CONTAINER}" --auth-mode login --output none; then
     printf "Create %s blob container...\\n" "${AZ_CONTAINER}"
     az storage container create \
         --subscription "${AZ_SUBSCRIPTION_ID}" \
         --name "${AZ_CONTAINER}" \
         --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
+        --auth-mode login \
         --public-access "off" \
         --output none
 
@@ -197,6 +236,7 @@ if ! az storage container show --subscription "${AZ_SUBSCRIPTION_ID}" --account-
         --container-name "${AZ_CONTAINER}" \
         --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
         --name "rwl" \
+        --auth-mode login \
         --permissions "rwl" \
         --expiry "$(date -u -d "100 years" '+%Y-%m-%dT%H:%MZ')" \
         --start "$(date -u -d "-1 days" '+%Y-%m-%dT%H:%MZ')" \
@@ -208,11 +248,15 @@ if ! az storage container show --subscription "${AZ_SUBSCRIPTION_ID}" --account-
         --name "${AZ_CONTAINER}" \
         --account-name "${AZ_LB_DNS}${AZ_LOCATION}" \
         --policy-name "rwl" \
+        --auth-mode login \
         --https-only \
         --output tsv)
 
-    printf "Your Storage access key is: \"%s\"\\n" "${sas}"
-    echo "${sas}" > ~/"${AZ_LB_DNS}""${AZ_LOCATION}"_"${AZ_CONTAINER}"_sas.txt
+    printf "Your Storage access key is saved locally.\\n"
+    SAS_FILE="${HOME}/${AZ_LB_DNS}${AZ_LOCATION}_${AZ_CONTAINER}_sas.txt"
+    umask 077
+    printf '%s\\n' "${sas}" > "${SAS_FILE}"
+    chmod 600 "${SAS_FILE}"
 fi
 
 
@@ -241,6 +285,7 @@ az group create \
     --location "${AZ_LOCATION}" \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_VM_RG}" \
+    --tags "${AZ_TAGS[@]}" \
     --output none
 
 printf "Create NSG %s-nsg...\\n" "${AZ_VM}"
@@ -249,6 +294,7 @@ az network nsg create \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_VM}-nsg" \
     --resource-group "${AZ_VM_RG}" \
+    --tags "${AZ_TAGS[@]}" \
     --output none
 
 printf "Create NSG rule to allow inbound connections...\\n"
@@ -258,13 +304,13 @@ az network nsg rule create \
     --resource-group "${AZ_VM_RG}" \
     --priority "1000" \
     --direction "Inbound" \
-    --source-address-prefixes "*" \
+    --source-address-prefixes "${AZ_SSH_SOURCE_PREFIXES}" \
     --source-port-ranges "*" \
     --destination-address-prefixes "VirtualNetwork" \
     --destination-port-ranges "4160" \
     --access "Allow" \
     --protocol "tcp" \
-    --description "Allow SSH traffic from Any" \
+    --description "Allow SSH traffic from the configured source prefixes" \
     --output none
 
 az network nsg rule create \
@@ -294,6 +340,7 @@ az network public-ip create \
     --ip-tags 'RoutingPreference=Internet' \
     --zone 1 2 3 \
     --dns-name "${AZ_LB_DNS}" \
+    --tags "${AZ_TAGS[@]}" \
     --output none
 
 printf "Create NIC...\\n"
@@ -305,6 +352,8 @@ az network nic create \
     --subnet "/subscriptions/${AZ_SUBSCRIPTION_ID}/resourceGroups/${AZ_SHARED_RG}/providers/Microsoft.Network/virtualNetworks/${AZ_VNET}/subnets/${AZ_VNET_SUBNET_NAME}" \
     --public-ip-address "${AZ_LB}-public-ip" \
     --network-security-group "${AZ_VM}-nsg" \
+    --accelerated-networking true \
+    --tags "${AZ_TAGS[@]}" \
     --output none
 
 printf "Create %s Azure Virtual Machine...\\n" "${AZ_VM}"
@@ -313,12 +362,19 @@ az vm create \
     --subscription "${AZ_SUBSCRIPTION_ID}" \
     --name "${AZ_VM}" \
     --resource-group "${AZ_VM_RG}" \
-    --image "Canonical:0001-com-ubuntu-server-focal:20_04-lts-gen2:latest" \
-    --size "Standard_F2s_v2" \
+    --image "${AZ_VM_IMAGE}" \
+    --size "${AZ_VM_SIZE}" \
     --nics "${AZ_VM}-nic" \
-    --storage-sku "StandardSSD_LRS" \
-    --admin-username "yandolfat" \
-    --ssh-key-value "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCe0lgCF/ZKiUJnl8gbSQSKvzIiWZM8ZouxUxjmXGJIXvacmZCC/Ou7UvX5JMQFqUcYe63BSGOz93X2r4e17M++JbOR+ShloGS+4+w+wu6MAYaiVIC6/PmhSfyzFXEWuE+dLadNwJMF8ePUXqwYZntRy5Gahu1wYSkqaif3TNsDRCDYcd0viCOEmGN+NYeoNJwGQ9HIWJ29sY/BUZJWEVB0ZweTvNqwtl3bMvY/JHmEmEIYwdRcdROPEPmxcuBH81Tt2fsD9V7DYhyvz2lQPVJD++3jIZX2i9sPQj8SVJbo23xOZZykVIKU7WaztBtPPz3RdytBiyQ8sgNwKLbJX7Vv0+qY1no4xUnKwJPc5zfikje4rYxTksjIRg7igMNrCFGWZA75hb+Nm+HhQsKqVHtOIaw3P6j6slysQQ5MOQYTqg7k60yxTRGTv8Y6V45jrYWQg+vhKO4gzVTKsqrqJTRhJXU3vv//1NPW7ucNlNPCF8n0RyjXue6Y1Xr8rZv5QheLZvcHumd23pA+Z6aRA/Hd2VINy00PQz9dscOpWHpUiiu4HMPHLcLdlhaVMFr2otwB2749xHciZFCsWnprMGX6V3lVGHQ3OFfIBFz1ZVFG+eAbXmZZepdtwVJDidXDfvzAtMol/+PwVVUJgpA1a1dryyZkg9k2FbO1bSVolvmkpQ== Yves ANDOLFATTO" \
+    --storage-sku "${AZ_OS_DISK_SKU}" \
+    --admin-username "${AZ_VM_ADMIN_USERNAME}" \
+    --ssh-key-value "${AZ_SSH_KEY_VALUE}" \
+    --authentication-type ssh \
+    --security-type TrustedLaunch \
+    --enable-secure-boot true \
+    --enable-vtpm true \
+    --patch-mode AutomaticByPlatform \
+    --enable-agent true \
+    --tags "${AZ_TAGS[@]}" \
     --custom-data "./cloudinit.yml" \
     --output none
 
