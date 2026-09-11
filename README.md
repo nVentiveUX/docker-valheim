@@ -97,7 +97,8 @@ docker run -d \
     -backuplong 43200 \
     -crossplay \
     -preset Normal \
-    -modifier DeathPenalty casual
+    -modifier DeathPenalty casual \
+    -setkey nobuildcost
 }
 ```
 
