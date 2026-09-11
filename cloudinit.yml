@@ -1,7 +1,7 @@
 #cloud-config
 
 output:
-  all: '| tee -a /var/log/cloud-init-output.log'
+  all: "| tee -a /var/log/cloud-init-output.log"
 
 package_update: true
 package_upgrade: true
@@ -36,13 +36,16 @@ system_info:
     groups: [docker]
 
 write_files:
-  - path: '/etc/ssh/sshd_config.d/10-non-standard-port.conf'
+  - path: "/etc/ssh/sshd_config.d/10-non-standard-port.conf"
     content: |
       Port 4160
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
 
 runcmd:
   - set -x
-  - sudo apt-get remove -y --purge sshguard || true
   - systemctl restart sshd.service
 
 final_message: "The system is finally up, after $UPTIME seconds"
