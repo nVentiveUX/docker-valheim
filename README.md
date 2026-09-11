@@ -82,20 +82,24 @@ docker run -d \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   --restart unless-stopped \
   nventiveux/docker-valheim:latest ./valheim_server.x86_64 \
-    -name "nVentiveUX" \
+    -name "LeBonServ" \
     -port 2456 \
-    -world "Dedicated" \
+    -world "Dedicated001" \
     -password "$(read -rsp 'Valheim password: ' password; printf '%s' "$password")" \
     -public 0 \
     -saveinterval 900 \
     -backups 4 \
     -backupshort 7200 \
     -backuplong 43200 \
-    -crossplay
+    -crossplay \
+    -preset Normal \
+    -modifier DeathPenalty casual
 }
 ```
 
 This configuration keeps the server out of the public browser, saves the world every 15 minutes, keeps four rolling Valheim backups, and enables crossplay for players on supported platforms. The Azure backup job provides an additional off-host recovery copy.
+
+World customization is optional. Edit the launch command directly: use `-preset` with `Normal`, `Casual`, `Easy`, `Hard`, `Hardcore`, `Immersive`, or `Hammer`; add `-modifier <name> <value>` for combat, death penalty, resources, raids, or portals; and use `-setkey` with `nobuildcost`, `playerevents`, `passivemobs`, or `nomap`.
 
 You can test on you laptop the connectivity.
 
