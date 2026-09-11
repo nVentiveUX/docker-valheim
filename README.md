@@ -78,6 +78,10 @@ sudo chown -R 1000:1000 /srv/valheim
 docker run -d \
   --name valheim \
   --publish 2456-2457:2456-2457/udp \
+  --stop-timeout 60 \
+  --security-opt no-new-privileges:true \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   --volume "/srv/valheim/server:/home/steam/valheim" \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   --restart unless-stopped \
@@ -99,7 +103,16 @@ docker run -d \
 
 This configuration keeps the server out of the public browser, saves the world every 15 minutes, keeps four rolling Valheim backups, and enables crossplay for players on supported platforms. The Azure backup job provides an additional off-host recovery copy.
 
-World customization is optional. Edit the launch command directly: use `-preset` with `Normal`, `Casual`, `Easy`, `Hard`, `Hardcore`, `Immersive`, or `Hammer`; add `-modifier <name> <value>` for combat, death penalty, resources, raids, or portals; and use `-setkey` with `nobuildcost`, `playerevents`, `passivemobs`, or `nomap`.
+The 60-second stop timeout gives Valheim time to save cleanly. The password is entered interactively, but Docker can still expose command arguments through container inspection; rotate the password if it is shared or logged.
+
+World customization is optional. Edit the launch command directly: use `-preset` with `Normal`, `Casual`, `Easy`, `Hard`, `Hardcore`, `Immersive`, or `Hammer`; add `-modifier <name> <value>` for combat, deathpenalty, resources, raids, or portals; and use `-setkey` with `nobuildcost`, `playerevents`, `passivemobs`, or `nomap`.
+
+Valid modifiers and values are:
+`Combat`: veryeasy, easy, hard, veryhard
+`DeathPenalty`: casual, veryeasy, easy, hard, hardcore
+`Resources`: muchless, less, more, muchmore, most
+`Raids`: none, muchless, less, more, muchmore
+`Portals`: casual, hard, veryhard
 
 You can test on you laptop the connectivity.
 
@@ -147,7 +160,15 @@ docker restart valheim
 # or
 {
 docker stop valheim
-docker run -it --rm -v "/srv/valheim/server:/home/steam/valheim" -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" nventiveux/docker-valheim:latest ./steamcmd.sh +login anonymous +force_install_dir "/home/steam/valheim" +app_update "896660" +quit
+docker run -it --rm \
+  --entrypoint /home/steam/steamcmd/steamcmd.sh \
+  -v "/srv/valheim/server:/home/steam/valheim" \
+  -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
+  nventiveux/docker-valheim:latest \
+  +force_install_dir "/home/steam/valheim" \
+  +login anonymous \
+  +app_update "896660" \
+  +quit
 docker start valheim
 }
 ```
