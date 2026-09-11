@@ -12,13 +12,15 @@ if [[ $# -ne 3 ]]; then
 fi
 
 umask 077
-exec 9>/run/lock/valheim-backup.lock
+LOCK_FILE="${LOCK_FILE:-/run/lock/valheim-backup.lock}"
+exec 9>"${LOCK_FILE}"
 flock -n 9 || exit 0
 
 # Please edit according to your need.
-BACKUP_DIR="/var/backups/valheim"
-FILES_DIR="/srv/valheim/saves"
-LOG_DIR="/var/log/valheim"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/valheim}"
+FILES_DIR="${FILES_DIR:-/srv/valheim/saves}"
+LOG_DIR="${LOG_DIR:-/var/log/valheim}"
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
 STORAGE_ACCOUNT_NAME=$1
 STORAGE_SAS_TOKEN_FILE=$2
 STORAGE_ACCOUNT_CONTAINER=$3
@@ -36,6 +38,16 @@ if [[ ! -r $STORAGE_SAS_TOKEN_FILE ]]; then
   exit 64
 fi
 STORAGE_SAS_TOKEN="$(<"${STORAGE_SAS_TOKEN_FILE}")"
+
+if [[ ! -d $FILES_DIR ]]; then
+  printf 'Save directory is not readable: %s\n' "$FILES_DIR" >&2
+  exit 66
+fi
+
+if [[ ! $RETENTION_DAYS =~ ^[0-9]+$ ]]; then
+  printf 'RETENTION_DAYS must be a non-negative integer: %s\n' "$RETENTION_DAYS" >&2
+  exit 64
+fi
 
 # Check backup destination is there
 if [ ! -d "$LOG_DIR" ]; then
@@ -62,7 +74,7 @@ rCodeFinalTar=0
 rCodeUpload=0
 
 # Install AzCopy
-AZCOPY_PATH="/usr/local/bin/azcopy"
+AZCOPY_PATH="${AZCOPY_PATH:-/usr/local/bin/azcopy}"
 if [ ! -x "$AZCOPY_PATH" ]; then
   write_log "Install AzCopy..."
   AZCOPY_TMPDIR=$(mktemp -d /tmp/azcopy.XXXXXX)
@@ -82,6 +94,11 @@ if [ ! -d "$BACKUP_DIR" ]; then
   mkdir -p "$BACKUP_DIR"
 fi
 
+if ! df -P "$BACKUP_DIR" >/dev/null; then
+  write_log "Unable to access backup storage."
+  exit 1
+fi
+
 # Application backup
 write_log "Copy files."
 # docker stop valheim
@@ -90,6 +107,11 @@ cp -a "${FILES_DIR}" "${TMPDIR}" || rCodeBackup=$?
 if [ $rCodeBackup -ne 0 ]; then
   write_log "Unable to backup the files!"
   write_log "!!!! BACKUP FAILED !!!!"
+  exit 2
+fi
+
+if ! find "${TMPDIR}" -type f -print -quit | grep -q .; then
+  write_log "Save directory contains no files; refusing to create an empty backup."
   exit 2
 fi
 
@@ -106,12 +128,14 @@ fi
 write_log "Upload \"${BACKUP_FILE}\" into \"https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}\"."
 "$AZCOPY_PATH" copy \
   "${BACKUP_FILE}" \
-  "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}/${BACKUP_FILE}?${STORAGE_SAS_TOKEN}" >/dev/null 2>&1 || rCodeUpload=$?
+  "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_ACCOUNT_CONTAINER}/$(basename "${BACKUP_FILE}")?${STORAGE_SAS_TOKEN}" >/dev/null 2>&1 || rCodeUpload=$?
 if [ $rCodeUpload -ne 0 ]; then
   write_log "Unable to upload the final archive into Azure!"
   write_log "!!!! BACKUP FAILED !!!!"
   exit 2
 fi
+
+find "$BACKUP_DIR" -type f -name 'full-backup-*.tar.xz' -mtime "+${RETENTION_DAYS}" -delete
 
 write_log "#### BACKUP END ####"
 exit 0
