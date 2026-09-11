@@ -116,7 +116,7 @@ printf "Set-up \"/etc/cron.d/valheim\" backup system...\\n"
 sudo mkdir -p /usr/local/share/valheim/maintenance
 sudo install -d -m 700 /etc/valheim
 sudo install -m 600 /dev/null "${STORAGE_SAS_TOKEN_FILE}"
-printf '%s\\n' "$STORAGE_SAS_TOKEN" | sudo tee "${STORAGE_SAS_TOKEN_FILE}" >/dev/null
+printf '%s\n' "$STORAGE_SAS_TOKEN" | sudo tee "${STORAGE_SAS_TOKEN_FILE}" >/dev/null
 sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/refs/heads/main/azure_backup.sh" -O /usr/local/share/valheim/maintenance/azure_backup.sh
 sudo chmod +x /usr/local/share/valheim/maintenance/azure_backup.sh
 cat <<EOF | sudo tee /etc/cron.d/valheim >/dev/null 2>&1

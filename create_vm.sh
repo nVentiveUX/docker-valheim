@@ -255,7 +255,7 @@ if ! az storage container show --subscription "${AZ_SUBSCRIPTION_ID}" --account-
     printf "Your Storage access key is saved locally.\\n"
     SAS_FILE="${HOME}/${AZ_LB_DNS}${AZ_LOCATION}_${AZ_CONTAINER}_sas.txt"
     umask 077
-    printf '%s\\n' "${sas}" > "${SAS_FILE}"
+    printf '%s\n' "${sas}" > "${SAS_FILE}"
     chmod 600 "${SAS_FILE}"
 fi
 
