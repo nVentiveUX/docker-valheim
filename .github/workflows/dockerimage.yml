@@ -25,10 +25,10 @@ jobs:
       DOCKER_IMAGE: nventiveux/docker-valheim
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Hadolint
-        uses: brpaz/hadolint-action@v1.2.1
+        uses: brpaz/hadolint-action@v3.5.0
         with:
           dockerfile: Dockerfile
 
