@@ -81,7 +81,7 @@ if [ ! -x "$AZCOPY_PATH" ]; then
   wget -q -O "${AZCOPY_TMPDIR}/azcopy.tar.gz" "https://aka.ms/downloadazcopy-v10-linux"
   mkdir "${AZCOPY_TMPDIR}/extract"
   tar -xzf "${AZCOPY_TMPDIR}/azcopy.tar.gz" -C "${AZCOPY_TMPDIR}/extract" --strip-components=1 --wildcards 'azcopy_linux_amd64_*/azcopy'
-  install -m 0755 "${AZCOPY_TMPDIR}/azcopy" "$AZCOPY_PATH"
+  install -m 0755 "${AZCOPY_TMPDIR}/extract/azcopy" "$AZCOPY_PATH"
   rm -rf "$AZCOPY_TMPDIR"
   write_log "AzCopy installed."
 fi

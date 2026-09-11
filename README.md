@@ -81,9 +81,21 @@ docker run -d \
   --volume "/srv/valheim/server:/home/steam/valheim" \
   --volume "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   --restart unless-stopped \
-  nventiveux/docker-valheim:latest ./valheim_server.x86_64 -name "nVentiveUX" -port 2456 -world "Dedicated" -password "$(read -rsp 'Valheim password: ' password; printf '%s' "$password")"
+  nventiveux/docker-valheim:latest ./valheim_server.x86_64 \
+    -name "nVentiveUX" \
+    -port 2456 \
+    -world "Dedicated" \
+    -password "$(read -rsp 'Valheim password: ' password; printf '%s' "$password")" \
+    -public 0 \
+    -saveinterval 900 \
+    -backups 4 \
+    -backupshort 7200 \
+    -backuplong 43200 \
+    -crossplay
 }
 ```
+
+This configuration keeps the server out of the public browser, saves the world every 15 minutes, keeps four rolling Valheim backups, and enables crossplay for players on supported platforms. The Azure backup job provides an additional off-host recovery copy.
 
 You can test on you laptop the connectivity.
 
@@ -102,9 +114,10 @@ STORAGE_SAS_TOKEN_FILE="/etc/valheim/storage-sas-token"
 
 printf "Set-up \"/etc/cron.d/valheim\" backup system...\\n"
 sudo mkdir -p /usr/local/share/valheim/maintenance
+sudo install -d -m 700 /etc/valheim
 sudo install -m 600 /dev/null "${STORAGE_SAS_TOKEN_FILE}"
 printf '%s\\n' "$STORAGE_SAS_TOKEN" | sudo tee "${STORAGE_SAS_TOKEN_FILE}" >/dev/null
-sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/c5cbc6e/azure_backup.sh" -O /usr/local/share/valheim/maintenance/azure_backup.sh
+sudo wget -q "https://github.com/nVentiveUX/docker-valheim/raw/refs/heads/main/azure_backup.sh" -O /usr/local/share/valheim/maintenance/azure_backup.sh
 sudo chmod +x /usr/local/share/valheim/maintenance/azure_backup.sh
 cat <<EOF | sudo tee /etc/cron.d/valheim >/dev/null 2>&1
 SHELL=/bin/bash
@@ -112,6 +125,15 @@ SHELL=/bin/bash
 0 5 * * * root    /usr/local/share/valheim/maintenance/azure_backup.sh "$STORAGE_ACCOUNT_NAME" "$STORAGE_SAS_TOKEN_FILE" "$STORAGE_ACCOUNT_CONTAINER" >/dev/null 2>&1
 EOF
 )
+```
+
+To run the backup immediately for testing, execute the command from the cron entry directly. Do not run `/etc/cron.d/valheim` with `run-one`; it is a cron configuration file, not an executable script:
+
+```bash
+sudo /usr/local/share/valheim/maintenance/azure_backup.sh \
+  lebonservfrancecentral \
+  /etc/valheim/storage-sas-token \
+  backup-001
 ```
 
 ### Update
