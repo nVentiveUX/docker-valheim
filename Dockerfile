@@ -5,7 +5,7 @@ LABEL maintainer="nVentiveUX <https://github.com/nVentiveUX>"
 LABEL license="MIT"
 LABEL description="A Docker image to easily setup and run a dedicated server for the early access game Valheim."
 
-USER root
+USER 0
 
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
@@ -27,7 +27,7 @@ RUN echo "** 🏗️ Set locales..." \
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
   && echo "** 👍 Done."
 
-USER ${USER}
+USER 1000:1000
 
 ENV TZ="Europe/Paris" \
     LANG="en_US.utf8" \
