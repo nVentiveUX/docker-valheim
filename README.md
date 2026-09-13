@@ -88,7 +88,7 @@ docker run -d \
   nventiveux/docker-valheim:latest ./valheim_server.x86_64 \
     -name "LeBonServ" \
     -port 2456 \
-    -world "Dedicated001" \
+    -world "bmbp74" \
     -password "$(read -rsp 'Valheim password: ' password; printf '%s' "$password")" \
     -public 0 \
     -saveinterval 900 \
