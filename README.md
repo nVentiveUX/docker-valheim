@@ -98,6 +98,7 @@ docker run -d \
     -crossplay \
     -preset Normal \
     -modifier DeathPenalty casual \
+    -modifier Raids none \
     -setkey nobuildcost
 }
 ```
