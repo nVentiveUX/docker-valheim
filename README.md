@@ -99,6 +99,7 @@ docker run -d \
     -preset Normal \
     -modifier DeathPenalty casual \
     -modifier Raids none \
+    -modifier Resources muchmore \
     -setkey nobuildcost
 }
 ```
