@@ -163,13 +163,16 @@ docker restart valheim
 # or
 {
 docker stop valheim
+sudo mv /srv/valheim/server "/srv/valheim/server.failed-$(date +%Y%m%d-%H%M%S)"
+sudo mkdir -p /srv/valheim/server
+sudo chown -R 1000:1000 /srv/valheim/server
 docker run -it --rm \
   --entrypoint /home/steam/steamcmd/steamcmd.sh \
   -v "/srv/valheim/server:/home/steam/valheim" \
-  -v "/srv/valheim/saves:/home/steam/.config/unity3d/IronGate/Valheim" \
   nventiveux/docker-valheim:latest \
   +force_install_dir "/home/steam/valheim" \
   +login anonymous \
+  +app_info_update 1 \
   +app_update "896660" \
   +quit
 docker start valheim
